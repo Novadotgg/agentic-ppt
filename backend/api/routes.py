@@ -35,6 +35,39 @@ def health_check():
     return HealthResponse(status="ok", service="Nova PPT Gen")
 
 
+_VISITOR_CACHE = {"count": 1}
+
+
+@router.get("/visitor-count")
+def get_visitor_count(hit: bool = True):
+    """
+    Returns and optionally increments the global website visitor count.
+    """
+    global _VISITOR_CACHE
+    import urllib.request
+    import json
+
+    action = "hit" if hit else "get"
+    url = f"https://countapi.mileshilliard.com/api/v1/{action}/novadotgg_agentic_ppt_visitors"
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
+        )
+        with urllib.request.urlopen(req, timeout=3.0) as resp:
+            data = json.loads(resp.read().decode())
+            val = data.get("value")
+            if isinstance(val, int) and val > 0:
+                _VISITOR_CACHE["count"] = val
+                return {"count": val}
+    except Exception as e:
+        print(f"[VisitorCount] External count failed: {e}")
+        if hit:
+            _VISITOR_CACHE["count"] += 1
+
+    return {"count": _VISITOR_CACHE["count"]}
+
+
 @router.post("/generate-ppt")
 def generate_ppt(request: GeneratePPTRequest):
     """

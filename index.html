@@ -298,6 +298,33 @@
       animation: pulse 2s ease-in-out infinite;
     }
 
+    .visitor-count-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-primary);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--color-emerald-light);
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.28);
+      border-radius: var(--radius-full);
+      padding: 1px 8px;
+      letter-spacing: 0.04em;
+      line-height: 1.4;
+      transition: all 0.3s ease;
+    }
+
+    .visitor-count-badge:empty {
+      display: none;
+    }
+
+    .eyebrow-sep {
+      color: var(--color-emerald);
+      opacity: 0.45;
+      font-size: 9px;
+    }
+
     @keyframes pulse {
 
       0%,
@@ -1229,6 +1256,9 @@
     }
 
     .footer-brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
       font-size: var(--text-caption);
       font-weight: 700;
       color: var(--color-silver-mist);
@@ -1981,6 +2011,7 @@
     <div class="footer-inner">
       <div class="footer-brand">
         <span>Nova PPT Gen</span>
+        <span class="visitor-count-badge" id="visitor-count-footer" title="Visitor count"></span>
       </div>
       <div class="footer-credit">
         Made by <a href="https://sayan-pi.vercel.app/" target="_blank" rel="noopener noreferrer" class="footer-credit-link">Sayan</a>
@@ -1991,6 +2022,26 @@
   <!-- JAVASCRIPT -->
   <script>
     'use strict';
+
+    /* Website Visitor Count */
+    (async function initVisitorCount() {
+      try {
+        const hasVisited = sessionStorage.getItem('nova_visited');
+        const endpoint = hasVisited ? '/api/visitor-count?hit=false' : '/api/visitor-count?hit=true';
+        sessionStorage.setItem('nova_visited', '1');
+
+        const res = await fetch(endpoint);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data && typeof data.count === 'number' && data.count > 0) {
+          const countStr = data.count.toLocaleString();
+          const footerCount = document.getElementById('visitor-count-footer');
+          if (footerCount) footerCount.textContent = countStr;
+        }
+      } catch (_) {
+        // Fail silently so user experience is uninterrupted
+      }
+    })();
 
     /* Nav scroll */
     const nav = document.getElementById('nav');
