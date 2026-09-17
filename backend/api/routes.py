@@ -108,19 +108,23 @@ def generate_ppt(request: GeneratePPTRequest):
             detail="Failed to produce structured presentation slides.",
         )
 
-    # 5. Generate temporary .pptx file
-    try:
-        temp_file_path = create_presentation_file(
-            presentation_data=structured_data,
-            default_topic=request.topic,
-            default_font=request.font_style,
-            default_theme=request.theme_selection,
-        )
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create PowerPoint presentation.",
-        )
+    # 5. Retrieve or generate temporary .pptx file
+    temp_file_path = result_state.get("ppt_file_path")
+    if not temp_file_path or not os.path.exists(temp_file_path):
+        try:
+            temp_file_path = create_presentation_file(
+                presentation_data=structured_data,
+                default_topic=request.topic,
+                default_font=request.font_style,
+                default_theme=request.theme_selection,
+                has_logo=request.logo,
+                has_images=request.images,
+            )
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create PowerPoint presentation.",
+            )
 
     # 6. Return downloadable FileResponse with background cleanup
     filename = f"{sanitize_filename(request.topic)}.pptx"

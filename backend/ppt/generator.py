@@ -7,6 +7,8 @@ from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.enum.shapes import MSO_SHAPE
+from pptx.chart.data import CategoryChartData
+from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -238,7 +240,8 @@ def render_hero_title(
     bp.font.color.rgb = colors["primary_accent"]
 
     # 2. Main Title Text Box
-    title_box = slide.shapes.add_textbox(Inches(1.2), Inches(2.2), Inches(10.9), Inches(3.2))
+    title_width = Inches(9.8) if has_logo else Inches(11.2)
+    title_box = slide.shapes.add_textbox(Inches(1.2), Inches(2.2), title_width, Inches(3.2))
     tf = title_box.text_frame
     tf.word_wrap = True
     tf.margin_left = tf.margin_right = tf.margin_top = tf.margin_bottom = 0
@@ -259,7 +262,8 @@ def render_hero_title(
 
     # 4. Subheadline Box
     if subheadline:
-        sub_box = slide.shapes.add_textbox(Inches(1.2), Inches(4.6), Inches(10.5), Inches(1.4))
+        sub_width = Inches(9.8) if has_logo else Inches(11.2)
+        sub_box = slide.shapes.add_textbox(Inches(1.2), Inches(4.6), sub_width, Inches(1.4))
         stf = sub_box.text_frame
         stf.word_wrap = True
         stf.margin_left = stf.margin_right = stf.margin_top = stf.margin_bottom = 0
@@ -309,6 +313,7 @@ def add_slide_header(
     """
     Renders a clean, executive slide header with category eyebrow,
     bold high-contrast title, and subtle subtitle.
+    When has_logo is False, the header expands to full slide width (11.733") with no reserved dead space.
     """
     # 1. Top Accent Rule
     top_bar = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0.8), Inches(0.4), Inches(1.2), Inches(0.05))
@@ -316,8 +321,9 @@ def add_slide_header(
     top_bar.fill.fore_color.rgb = colors["primary_accent"]
     top_bar.line.fill.background()
 
-    # 2. Title and Subtitle Box
-    title_box = slide.shapes.add_textbox(Inches(0.8), Inches(0.55), Inches(10.5), Inches(1.3))
+    # 2. Title and Subtitle Box (expand to full 11.733" when logo is disabled)
+    title_width = Inches(10.4) if has_logo else Inches(11.733)
+    title_box = slide.shapes.add_textbox(Inches(0.8), Inches(0.55), title_width, Inches(1.3))
     tf = title_box.text_frame
     tf.word_wrap = True
     tf.margin_left = tf.margin_right = tf.margin_top = tf.margin_bottom = 0
@@ -702,6 +708,689 @@ def render_standard_cards(
             p_prompt.space_before = Pt(10)
 
 
+def render_chart_slide(
+    slide,
+    chart_data: Dict[str, Any],
+    elements: List[Dict[str, Any]],
+    colors: Dict[str, Any],
+    header_font: str,
+    body_font: str,
+):
+    """
+    Renders a native, theme-styled PowerPoint chart paired with an analytical takeaway card.
+    """
+    left_start = Inches(0.8)
+    top_pos = Inches(2.1)
+    chart_card_width = Inches(7.2)
+    takeaway_card_width = Inches(4.283)
+    card_height = Inches(4.7)
+
+    # 1. Left Chart Card Background Surface
+    chart_surface = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left_start, top_pos, chart_card_width, card_height)
+    chart_surface.fill.solid()
+    chart_surface.fill.fore_color.rgb = colors["surface"]
+    chart_surface.line.color.rgb = colors["surface_border"]
+    chart_surface.line.width = Pt(1)
+
+    # Top accent stripe
+    stripe_l = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left_start, top_pos, chart_card_width, Inches(0.06))
+    stripe_l.fill.solid()
+    stripe_l.fill.fore_color.rgb = colors["primary_accent"]
+    stripe_l.line.fill.background()
+
+    # 2. Build CategoryChartData
+    categories = chart_data.get("categories") or ["2023", "2024", "2025 [Est]", "2026 [Est]"]
+    values = chart_data.get("values") or [12.0, 28.5, 54.0, 89.0]
+    series_name = chart_data.get("series_name") or "Observed Metric"
+
+    # Normalize lengths
+    min_len = min(len(categories), len(values))
+    if min_len < 2:
+        categories = ["Baseline", "Target"]
+        values = [25.0, 75.0]
+        min_len = 2
+
+    c_data = CategoryChartData()
+    c_data.categories = [str(c) for c in categories[:min_len]]
+    c_data.add_series(series_name, [float(v) for v in values[:min_len]])
+
+    # Chart Type
+    ctype_str = (chart_data.get("chart_type") or "column").lower()
+    if ctype_str in ("donut", "doughnut"):
+        chart_type = XL_CHART_TYPE.DOUGHNUT
+    elif ctype_str == "line":
+        chart_type = XL_CHART_TYPE.LINE
+    else:
+        chart_type = XL_CHART_TYPE.COLUMN_CLUSTERED
+
+    try:
+        chart_shape = slide.shapes.add_chart(
+            chart_type,
+            left_start + Inches(0.2),
+            top_pos + Inches(0.3),
+            chart_card_width - Inches(0.4),
+            card_height - Inches(0.5),
+            c_data,
+        )
+        chart = chart_shape.chart
+        chart.has_legend = False
+        plots = chart.plots
+        if plots and plots[0].series:
+            series = plots[0].series[0]
+            series.format.fill.solid()
+            series.format.fill.fore_color.rgb = colors["primary_accent"]
+    except Exception as e:
+        print(f"[Chart Render Warning] Error adding chart shape: {e}")
+
+    # 3. Right Takeaway Card
+    takeaway_left = left_start + chart_card_width + Inches(0.25)
+    t_card = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, takeaway_left, top_pos, takeaway_card_width, card_height)
+    t_card.fill.solid()
+    t_card.fill.fore_color.rgb = colors["surface"]
+    t_card.line.color.rgb = colors["surface_border"]
+    t_card.line.width = Pt(1)
+
+    stripe_r = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, takeaway_left, top_pos, takeaway_card_width, Inches(0.06))
+    stripe_r.fill.solid()
+    stripe_r.fill.fore_color.rgb = colors["secondary_accent"]
+    stripe_r.line.fill.background()
+
+    tf = t_card.text_frame
+    tf.word_wrap = True
+    tf.vertical_anchor = MSO_ANCHOR.TOP
+    tf.margin_left = Inches(0.35)
+    tf.margin_right = Inches(0.3)
+    tf.margin_top = Inches(0.35)
+
+    p_badge = tf.paragraphs[0]
+    p_badge.text = "QUANTITATIVE EVIDENCE"
+    p_badge.font.name = header_font
+    p_badge.font.size = Pt(10)
+    p_badge.font.bold = True
+    p_badge.font.color.rgb = colors["secondary_accent"]
+    p_badge.space_after = Pt(8)
+
+    chart_title = chart_data.get("title") or "Observed Performance Trajectory"
+    p_title = tf.add_paragraph()
+    p_title.text = chart_title
+    p_title.font.name = header_font
+    p_title.font.size = Pt(16)
+    p_title.font.bold = True
+    p_title.font.color.rgb = colors["heading"]
+    p_title.space_after = Pt(10)
+
+    takeaway = chart_data.get("key_takeaway")
+    if takeaway:
+        p_take = tf.add_paragraph()
+        p_take.text = takeaway
+        p_take.font.name = body_font
+        p_take.font.size = Pt(12)
+        p_take.font.color.rgb = colors["body"]
+        p_take.space_after = Pt(10)
+
+    # If any supporting elements exist, render them
+    for elem in elements[:2]:
+        t = elem.get("title")
+        d = elem.get("description")
+        if t or d:
+            p_elem = tf.add_paragraph()
+            p_elem.text = f"•  {t}: {d}" if (t and d) else (t or d)
+            p_elem.font.name = body_font
+            p_elem.font.size = Pt(11)
+            p_elem.font.color.rgb = colors["muted"]
+            p_elem.space_before = Pt(4)
+
+
+def render_comparison_layout(
+    slide,
+    comp_data: Dict[str, Any],
+    elements: List[Dict[str, Any]],
+    colors: Dict[str, Any],
+    header_font: str,
+    body_font: str,
+):
+    """
+    Renders an executive Before vs After / Legacy vs Next-Gen comparison layout.
+    """
+    left_start = Inches(0.8)
+    top_pos = Inches(2.1)
+    col_width = Inches(5.7)
+    card_height = Inches(4.7)
+    gap = Inches(0.333)
+
+    # Extract comparison parameters
+    left_title = comp_data.get("left_title") or "Traditional Status Quo"
+    left_status = comp_data.get("left_status") or "LEGACY FRICTION"
+    left_points = comp_data.get("left_points") or [
+        "Rigid rule-based scripts break on edge cases",
+        "High manual overhead for routine triage",
+        "Siloed architecture impedes real-time synthesis",
+    ]
+
+    right_title = comp_data.get("right_title") or "Autonomous Paradigm"
+    right_status = comp_data.get("right_status") or "MODERN ADVANTAGE"
+    right_points = comp_data.get("right_points") or [
+        "Self-healing workflows resolve transient anomalies",
+        "Automated tool execution with complete telemetry",
+        "Sub-second decision latency at enterprise scale",
+    ]
+
+    # Left Card (Legacy)
+    card_l = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left_start, top_pos, col_width, card_height)
+    card_l.fill.solid()
+    card_l.fill.fore_color.rgb = colors["surface"]
+    card_l.line.color.rgb = colors["surface_border"]
+    card_l.line.width = Pt(1)
+
+    stripe_l = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left_start, top_pos, col_width, Inches(0.06))
+    stripe_l.fill.solid()
+    stripe_l.fill.fore_color.rgb = colors["muted"]
+    stripe_l.line.fill.background()
+
+    tf_l = card_l.text_frame
+    tf_l.word_wrap = True
+    tf_l.vertical_anchor = MSO_ANCHOR.TOP
+    tf_l.margin_left = Inches(0.4)
+    tf_l.margin_right = Inches(0.35)
+    tf_l.margin_top = Inches(0.35)
+
+    p_badgel = tf_l.paragraphs[0]
+    p_badgel.text = left_status.upper()
+    p_badgel.font.name = header_font
+    p_badgel.font.size = Pt(10)
+    p_badgel.font.bold = True
+    p_badgel.font.color.rgb = colors["muted"]
+    p_badgel.space_after = Pt(8)
+
+    p_tit_l = tf_l.add_paragraph()
+    p_tit_l.text = left_title
+    p_tit_l.font.name = header_font
+    p_tit_l.font.size = Pt(17)
+    p_tit_l.font.bold = True
+    p_tit_l.font.color.rgb = colors["heading"]
+    p_tit_l.space_after = Pt(14)
+
+    for pt in left_points[:4]:
+        p_pt = tf_l.add_paragraph()
+        p_pt.text = f"—  {pt}"
+        p_pt.font.name = body_font
+        p_pt.font.size = Pt(12)
+        p_pt.font.color.rgb = colors["body"]
+        p_pt.space_before = Pt(8)
+
+    # Right Card (Modern Advantage)
+    right_left = left_start + col_width + gap
+    card_r = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, right_left, top_pos, col_width, card_height)
+    card_r.fill.solid()
+    card_r.fill.fore_color.rgb = colors["surface"]
+    card_r.line.color.rgb = colors["surface_border"]
+    card_r.line.width = Pt(1)
+
+    stripe_r = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, right_left, top_pos, col_width, Inches(0.06))
+    stripe_r.fill.solid()
+    stripe_r.fill.fore_color.rgb = colors["primary_accent"]
+    stripe_r.line.fill.background()
+
+    tf_r = card_r.text_frame
+    tf_r.word_wrap = True
+    tf_r.vertical_anchor = MSO_ANCHOR.TOP
+    tf_r.margin_left = Inches(0.4)
+    tf_r.margin_right = Inches(0.35)
+    tf_r.margin_top = Inches(0.35)
+
+    p_badger = tf_r.paragraphs[0]
+    p_badger.text = right_status.upper()
+    p_badger.font.name = header_font
+    p_badger.font.size = Pt(10)
+    p_badger.font.bold = True
+    p_badger.font.color.rgb = colors["primary_accent"]
+    p_badger.space_after = Pt(8)
+
+    p_tit_r = tf_r.add_paragraph()
+    p_tit_r.text = right_title
+    p_tit_r.font.name = header_font
+    p_tit_r.font.size = Pt(17)
+    p_tit_r.font.bold = True
+    p_tit_r.font.color.rgb = colors["heading"]
+    p_tit_r.space_after = Pt(14)
+
+    for pt in right_points[:4]:
+        p_pt = tf_r.add_paragraph()
+        p_pt.text = f"✓  {pt}"
+        p_pt.font.name = body_font
+        p_pt.font.size = Pt(12)
+        p_pt.font.color.rgb = colors["body"]
+        p_pt.space_before = Pt(8)
+
+
+def render_process_flow_layout(
+    slide,
+    steps: List[Dict[str, Any]],
+    colors: Dict[str, Any],
+    header_font: str,
+    body_font: str,
+):
+    """
+    Renders horizontal pipeline stages connected by flow indicators.
+    """
+    num_steps = max(2, min(4, len(steps)))
+    if num_steps == 0:
+        return
+
+    left_start = Inches(0.8)
+    top_pos = Inches(2.1)
+    total_width = Inches(11.733)
+    card_height = Inches(4.7)
+    gap = Inches(0.25)
+    card_width = (total_width - (gap * (num_steps - 1))) / num_steps
+
+    for i, step in enumerate(steps[:num_steps]):
+        cur_left = left_start + i * (card_width + gap)
+
+        card = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, cur_left, top_pos, card_width, card_height)
+        card.fill.solid()
+        card.fill.fore_color.rgb = colors["surface"]
+        card.line.color.rgb = colors["surface_border"]
+        card.line.width = Pt(1)
+
+        stripe = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, cur_left, top_pos, card_width, Inches(0.06))
+        stripe.fill.solid()
+        stripe.fill.fore_color.rgb = colors["primary_accent"]
+        stripe.line.fill.background()
+
+        tf = card.text_frame
+        tf.word_wrap = True
+        tf.vertical_anchor = MSO_ANCHOR.TOP
+        tf.margin_left = Inches(0.3)
+        tf.margin_right = Inches(0.25)
+        tf.margin_top = Inches(0.35)
+
+        # Step Indicator
+        p_badge = tf.paragraphs[0]
+        p_badge.text = f"PHASE 0{i+1}"
+        p_badge.font.name = header_font
+        p_badge.font.size = Pt(10)
+        p_badge.font.bold = True
+        p_badge.font.color.rgb = colors["primary_accent"]
+        p_badge.space_after = Pt(8)
+
+        title = step.get("title") or f"Milestone {i+1}"
+        p_title = tf.add_paragraph()
+        p_title.text = title
+        p_title.font.name = header_font
+        p_title.font.size = Pt(16)
+        p_title.font.bold = True
+        p_title.font.color.rgb = colors["heading"]
+        p_title.space_after = Pt(10)
+
+        desc = step.get("description") or ""
+        if desc:
+            p_desc = tf.add_paragraph()
+            p_desc.text = desc
+            p_desc.font.name = body_font
+            p_desc.font.size = Pt(11.5)
+            p_desc.font.color.rgb = colors["body"]
+            p_desc.space_after = Pt(12)
+
+        deliverable = step.get("deliverable")
+        if deliverable:
+            p_deliv = tf.add_paragraph()
+            p_deliv.text = f"OUTCOME: {deliverable}"
+            p_deliv.font.name = header_font
+            p_deliv.font.size = Pt(10)
+            p_deliv.font.bold = True
+            p_deliv.font.color.rgb = colors["secondary_accent"]
+
+
+def render_case_study_layout(
+    slide,
+    cs_data: Dict[str, Any],
+    elements: List[Dict[str, Any]],
+    colors: Dict[str, Any],
+    header_font: str,
+    body_font: str,
+):
+    """
+    Renders an executive case study spotlight with standout result metric and structured narrative.
+    """
+    left_start = Inches(0.8)
+    top_pos = Inches(2.1)
+    card_height = Inches(4.7)
+    left_width = Inches(4.5)
+    right_width = Inches(6.983)
+    gap = Inches(0.25)
+
+    org = cs_data.get("organization") or "Enterprise Spotlight"
+    metric = cs_data.get("highlight_metric") or "+65% Speed"
+    metric_label = cs_data.get("metric_label") or "Operational Gain"
+    takeaway = cs_data.get("takeaway") or "Scalable blueprint for enterprise adoption."
+
+    # Left Spotlight Card
+    card_l = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left_start, top_pos, left_width, card_height)
+    card_l.fill.solid()
+    card_l.fill.fore_color.rgb = colors["surface"]
+    card_l.line.color.rgb = colors["surface_border"]
+    card_l.line.width = Pt(1)
+
+    stripe_l = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left_start, top_pos, left_width, Inches(0.06))
+    stripe_l.fill.solid()
+    stripe_l.fill.fore_color.rgb = colors["primary_accent"]
+    stripe_l.line.fill.background()
+
+    tf_l = card_l.text_frame
+    tf_l.word_wrap = True
+    tf_l.vertical_anchor = MSO_ANCHOR.TOP
+    tf_l.margin_left = Inches(0.35)
+    tf_l.margin_right = Inches(0.3)
+    tf_l.margin_top = Inches(0.4)
+
+    p_badge = tf_l.paragraphs[0]
+    p_badge.text = f"CASE STUDY: {org.upper()}"
+    p_badge.font.name = header_font
+    p_badge.font.size = Pt(10)
+    p_badge.font.bold = True
+    p_badge.font.color.rgb = colors["primary_accent"]
+    p_badge.space_after = Pt(14)
+
+    p_met = tf_l.add_paragraph()
+    p_met.text = metric
+    p_met.font.name = header_font
+    p_met.font.size = Pt(40)
+    p_met.font.bold = True
+    p_met.font.color.rgb = colors["primary_accent"]
+    p_met.space_after = Pt(6)
+
+    p_lbl = tf_l.add_paragraph()
+    p_lbl.text = metric_label
+    p_lbl.font.name = header_font
+    p_lbl.font.size = Pt(14)
+    p_lbl.font.bold = True
+    p_lbl.font.color.rgb = colors["heading"]
+    p_lbl.space_after = Pt(14)
+
+    p_tk = tf_l.add_paragraph()
+    p_tk.text = f"STRATEGIC LESSON:\n{takeaway}"
+    p_tk.font.name = body_font
+    p_tk.font.size = Pt(11.5)
+    p_tk.font.color.rgb = colors["muted"]
+
+    # Right Structured Breakdown Card
+    right_left = left_start + left_width + gap
+    card_r = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, right_left, top_pos, right_width, card_height)
+    card_r.fill.solid()
+    card_r.fill.fore_color.rgb = colors["surface"]
+    card_r.line.color.rgb = colors["surface_border"]
+    card_r.line.width = Pt(1)
+
+    stripe_r = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, right_left, top_pos, right_width, Inches(0.06))
+    stripe_r.fill.solid()
+    stripe_r.fill.fore_color.rgb = colors["secondary_accent"]
+    stripe_r.line.fill.background()
+
+    tf_r = card_r.text_frame
+    tf_r.word_wrap = True
+    tf_r.vertical_anchor = MSO_ANCHOR.TOP
+    tf_r.margin_left = Inches(0.4)
+    tf_r.margin_right = Inches(0.35)
+    tf_r.margin_top = Inches(0.4)
+
+    sections = [
+        ("THE CORE CHALLENGE", cs_data.get("challenge") or "Manual fragmented workflows constrained growth."),
+        ("DEPLOYED MECHANISM", cs_data.get("solution") or "Automated multi-agent execution pipeline integrated into existing ERP."),
+        ("MEASURABLE IMPACT", cs_data.get("impact") or "Reduced latency by 65% with zero human exception triaging needed."),
+    ]
+
+    for i, (title, content) in enumerate(sections):
+        p_st = tf_r.paragraphs[0] if i == 0 else tf_r.add_paragraph()
+        p_st.text = title
+        p_st.font.name = header_font
+        p_st.font.size = Pt(11)
+        p_st.font.bold = True
+        p_st.font.color.rgb = colors["secondary_accent"]
+        p_st.space_after = Pt(4)
+        if i > 0:
+            p_st.space_before = Pt(14)
+
+        p_sc = tf_r.add_paragraph()
+        p_sc.text = content
+        p_sc.font.name = body_font
+        p_sc.font.size = Pt(12)
+        p_sc.font.color.rgb = colors["body"]
+
+
+def render_big_statistic_layout(
+    slide,
+    stat_data: Dict[str, Any],
+    elements: List[Dict[str, Any]],
+    colors: Dict[str, Any],
+    header_font: str,
+    body_font: str,
+):
+    """
+    Renders a dramatic, high-impact numerical anchor layout.
+    """
+    left_start = Inches(0.8)
+    top_pos = Inches(2.1)
+    card_height = Inches(4.7)
+    left_width = Inches(5.6)
+    right_width = Inches(5.883)
+    gap = Inches(0.25)
+
+    val = stat_data.get("value") or "$1.4T"
+    label = stat_data.get("label") or "Projected Market Expansion"
+    context = stat_data.get("context") or "CAGR of 38% through 2030"
+    implication = stat_data.get("implication") or "First movers capture disproportionate ecosystem defensibility."
+
+    # Left Card
+    card_l = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left_start, top_pos, left_width, card_height)
+    card_l.fill.solid()
+    card_l.fill.fore_color.rgb = colors["surface"]
+    card_l.line.color.rgb = colors["surface_border"]
+    card_l.line.width = Pt(1)
+
+    stripe_l = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left_start, top_pos, left_width, Inches(0.06))
+    stripe_l.fill.solid()
+    stripe_l.fill.fore_color.rgb = colors["primary_accent"]
+    stripe_l.line.fill.background()
+
+    tf_l = card_l.text_frame
+    tf_l.word_wrap = True
+    tf_l.vertical_anchor = MSO_ANCHOR.TOP
+    tf_l.margin_left = Inches(0.4)
+    tf_l.margin_right = Inches(0.35)
+    tf_l.margin_top = Inches(0.5)
+
+    p_b = tf_l.paragraphs[0]
+    p_b.text = "KEY QUANTITATIVE ANCHOR"
+    p_b.font.name = header_font
+    p_b.font.size = Pt(10)
+    p_b.font.bold = True
+    p_b.font.color.rgb = colors["primary_accent"]
+    p_b.space_after = Pt(14)
+
+    p_v = tf_l.add_paragraph()
+    p_v.text = val
+    p_v.font.name = header_font
+    p_v.font.size = Pt(54)
+    p_v.font.bold = True
+    p_v.font.color.rgb = colors["primary_accent"]
+    p_v.space_after = Pt(10)
+
+    p_lbl = tf_l.add_paragraph()
+    p_lbl.text = label
+    p_lbl.font.name = header_font
+    p_lbl.font.size = Pt(16)
+    p_lbl.font.bold = True
+    p_lbl.font.color.rgb = colors["heading"]
+    p_lbl.space_after = Pt(8)
+
+    p_c = tf_l.add_paragraph()
+    p_c.text = f"Context: {context}"
+    p_c.font.name = body_font
+    p_c.font.size = Pt(12)
+    p_c.font.color.rgb = colors["muted"]
+
+    # Right Card
+    right_left = left_start + left_width + gap
+    card_r = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, right_left, top_pos, right_width, card_height)
+    card_r.fill.solid()
+    card_r.fill.fore_color.rgb = colors["surface"]
+    card_r.line.color.rgb = colors["surface_border"]
+    card_r.line.width = Pt(1)
+
+    stripe_r = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, right_left, top_pos, right_width, Inches(0.06))
+    stripe_r.fill.solid()
+    stripe_r.fill.fore_color.rgb = colors["secondary_accent"]
+    stripe_r.line.fill.background()
+
+    tf_r = card_r.text_frame
+    tf_r.word_wrap = True
+    tf_r.vertical_anchor = MSO_ANCHOR.TOP
+    tf_r.margin_left = Inches(0.4)
+    tf_r.margin_right = Inches(0.35)
+    tf_r.margin_top = Inches(0.5)
+
+    p_rb = tf_r.paragraphs[0]
+    p_rb.text = "STRATEGIC IMPLICATION"
+    p_rb.font.name = header_font
+    p_rb.font.size = Pt(10)
+    p_rb.font.bold = True
+    p_rb.font.color.rgb = colors["secondary_accent"]
+    p_rb.space_after = Pt(14)
+
+    p_imp = tf_r.add_paragraph()
+    p_imp.text = implication
+    p_imp.font.name = header_font
+    p_imp.font.size = Pt(16)
+    p_imp.font.bold = True
+    p_imp.font.color.rgb = colors["heading"]
+    p_imp.space_after = Pt(14)
+
+    for elem in elements[:2]:
+        p_pt = tf_r.add_paragraph()
+        t = elem.get("title")
+        d = elem.get("description")
+        p_pt.text = f"•  {t}: {d}" if (t and d) else (t or d)
+        p_pt.font.name = body_font
+        p_pt.font.size = Pt(12)
+        p_pt.font.color.rgb = colors["body"]
+        p_pt.space_before = Pt(6)
+
+
+def render_references_layout(
+    slide,
+    sources: List[Dict[str, Any]],
+    colors: Dict[str, Any],
+    header_font: str,
+    body_font: str,
+):
+    """
+    Renders evidence base and methodology disclosures in a clean 2-column format.
+    """
+    left_start = Inches(0.8)
+    top_pos = Inches(2.1)
+    card_height = Inches(4.7)
+    card_width = Inches(5.7)
+    gap = Inches(0.333)
+
+    items = sources if isinstance(sources, list) else []
+    mid = (len(items) + 1) // 2
+    left_items = items[:mid]
+    right_items = items[mid:]
+
+    for col_idx, col_sources in enumerate([left_items, right_items]):
+        cur_left = left_start + col_idx * (card_width + gap)
+
+        card = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, cur_left, top_pos, card_width, card_height)
+        card.fill.solid()
+        card.fill.fore_color.rgb = colors["surface"]
+        card.line.color.rgb = colors["surface_border"]
+        card.line.width = Pt(1)
+
+        stripe = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, cur_left, top_pos, card_width, Inches(0.06))
+        stripe.fill.solid()
+        stripe.fill.fore_color.rgb = colors["primary_accent"]
+        stripe.line.fill.background()
+
+        tf = card.text_frame
+        tf.word_wrap = True
+        tf.vertical_anchor = MSO_ANCHOR.TOP
+        tf.margin_left = Inches(0.35)
+        tf.margin_right = Inches(0.3)
+        tf.margin_top = Inches(0.35)
+
+        p_b = tf.paragraphs[0]
+        p_b.text = f"EVIDENCE SOURCES {'PART 1' if col_idx == 0 else 'PART 2'}"
+        p_b.font.name = header_font
+        p_b.font.size = Pt(10)
+        p_b.font.bold = True
+        p_b.font.color.rgb = colors["primary_accent"]
+        p_b.space_after = Pt(10)
+
+        for src in col_sources[:3]:
+            title = src.get("source_title") or src.get("title") or "Empirical Benchmark"
+            citation = src.get("citation") or src.get("description") or "Industry Analysis"
+            is_est = src.get("is_estimated", False)
+
+            p_t = tf.add_paragraph()
+            p_t.text = f"{title} {'[Estimated]' if is_est else ''}"
+            p_t.font.name = header_font
+            p_t.font.size = Pt(13)
+            p_t.font.bold = True
+            p_t.font.color.rgb = colors["heading"]
+            p_t.space_before = Pt(8)
+
+            p_c = tf.add_paragraph()
+            p_c.text = citation
+            p_c.font.name = body_font
+            p_c.font.size = Pt(11)
+            p_c.font.color.rgb = colors["muted"]
+
+
+def render_quote_layout(
+    slide,
+    slide_data: Dict[str, Any],
+    colors: Dict[str, Any],
+    header_font: str,
+    body_font: str,
+):
+    """
+    Renders an impactful quotation/principle layout.
+    """
+    card = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(1.2), Inches(2.1), Inches(10.933), Inches(4.7))
+    card.fill.solid()
+    card.fill.fore_color.rgb = colors["surface"]
+    card.line.color.rgb = colors["surface_border"]
+    card.line.width = Pt(1)
+
+    stripe = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(1.2), Inches(2.1), Inches(10.933), Inches(0.06))
+    stripe.fill.solid()
+    stripe.fill.fore_color.rgb = colors["primary_accent"]
+    stripe.line.fill.background()
+
+    tf = card.text_frame
+    tf.word_wrap = True
+    tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+    tf.margin_left = tf.margin_right = Inches(0.8)
+
+    q_text = slide_data.get("quote_text") or slide_data.get("subheadline") or "The future belongs to those who build continuous agency."
+    attrib = slide_data.get("attribution") or "Executive Synthesis"
+
+    p_q = tf.paragraphs[0]
+    p_q.text = f'“{q_text}”'
+    p_q.font.name = header_font
+    p_q.font.size = Pt(22)
+    p_q.font.bold = True
+    p_q.font.color.rgb = colors["heading"]
+    p_q.space_after = Pt(18)
+
+    p_a = tf.add_paragraph()
+    p_a.text = f"— {attrib}"
+    p_a.font.name = body_font
+    p_a.font.size = Pt(13)
+    p_a.font.color.rgb = colors["primary_accent"]
+
+
 def render_slide_content(
     slide,
     slide_data: Dict[str, Any],
@@ -718,16 +1407,25 @@ def render_slide_content(
     layout_type = (slide_data.get("layout") or "standard").lower()
     elements = slide_data.get("content_elements", [])
 
-    # Check if elements are predominantly metrics / numbers
-    has_metrics = any(
-        elem.get("type") == "metric" or
-        bool(re.search(r'\d+[%BKMk]?', elem.get("title", "")))
-        for elem in elements
-    )
-
-    if layout_type == "metrics_callout" or (has_metrics and len(elements) in (3, 4) and not has_visual):
+    if layout_type == "chart" or slide_data.get("chart_data"):
+        render_chart_slide(slide, slide_data.get("chart_data", {}), elements, colors, header_font, body_font)
+    elif layout_type == "comparison" or slide_data.get("comparison"):
+        render_comparison_layout(slide, slide_data.get("comparison", {}), elements, colors, header_font, body_font)
+    elif layout_type in ("process_flow", "timeline", "process_timeline") or slide_data.get("process_flow") or (isinstance(slide_data.get("steps"), list) and len(slide_data["steps"]) >= 2):
+        steps = slide_data.get("process_flow", {}).get("steps") or slide_data.get("steps") or elements
+        render_process_flow_layout(slide, steps, colors, header_font, body_font)
+    elif layout_type == "case_study" or slide_data.get("case_study"):
+        render_case_study_layout(slide, slide_data.get("case_study", {}), elements, colors, header_font, body_font)
+    elif layout_type in ("big_statistic", "big_stat") or slide_data.get("big_statistic"):
+        render_big_statistic_layout(slide, slide_data.get("big_statistic", {}), elements, colors, header_font, body_font)
+    elif layout_type in ("references", "sources") or slide_data.get("references") or slide_data.get("sources"):
+        sources = slide_data.get("references") or slide_data.get("sources") or elements
+        render_references_layout(slide, sources, colors, header_font, body_font)
+    elif layout_type in ("quote", "insight") or slide_data.get("quote_text"):
+        render_quote_layout(slide, slide_data, colors, header_font, body_font)
+    elif layout_type == "metrics_callout":
         render_metrics_layout(slide, elements, colors, header_font, body_font)
-    elif layout_type in ("feature_grid", "split_screen", "process_timeline", "comparison", "timeline") or (len(elements) == 4 and not has_visual):
+    elif layout_type in ("feature_grid", "three_column", "split_screen") or (len(elements) == 4 and not has_visual):
         render_grid_layout(slide, elements, colors, header_font, body_font)
     else:
         render_standard_cards(slide, elements, colors, header_font, body_font, has_visual, visuals)
@@ -738,6 +1436,8 @@ def create_presentation_file(
     default_topic: str = "Presentation",
     default_font: str = "Modern Sans-Serif",
     default_theme: str = "Obsidian Emerald",
+    has_logo: Optional[bool] = None,
+    has_images: Optional[bool] = None,
 ) -> str:
     """
     Generates an executive-grade PowerPoint presentation from structured JSON
@@ -758,7 +1458,15 @@ def create_presentation_file(
 
     # Resolve typography respecting user's font style
     header_font, body_font = resolve_fonts(theme_info, default_font)
-    has_logo = str(theme_info.get("logo_specification", "")).lower() not in ("none", "")
+
+    # Strictly resolve logo: if caller passes boolean, respect it 100%; otherwise infer cleanly
+    if has_logo is None:
+        logo_spec = str(theme_info.get("logo_specification", "")).strip().lower()
+        has_logo = bool(logo_spec) and "none" not in logo_spec and logo_spec not in ("null", "false", "disabled", "no logo")
+
+    # Strictly resolve images: if caller passes boolean, respect it 100%; otherwise infer cleanly
+    if has_images is None:
+        has_images = bool(metadata.get("images", False))
 
     slides_data = presentation_data.get("slides", [])
     blank_layout = prs.slide_layouts[6]
@@ -775,8 +1483,15 @@ def create_presentation_file(
         headline = slide_data.get("headline", f"Slide {index + 1}")
         subheadline = slide_data.get("subheadline", "")
         layout_type = (slide_data.get("layout") or "standard").lower()
-        visuals = slide_data.get("visual_assets", {})
-        has_visual = bool(visuals and visuals.get("image_prompt"))
+
+        # If has_images is False, visual card is NEVER created and content cards use full width
+        visuals = slide_data.get("visual_assets", {}) if has_images else {}
+        img_prompt = str(visuals.get("image_prompt") or "").strip()
+        has_visual = bool(
+            has_images
+            and img_prompt
+            and img_prompt.lower() not in ("none", "null", "false", "disabled", "n/a", "")
+        )
 
         # Render slide by layout type
         if layout_type == "hero_title" or index == 0:

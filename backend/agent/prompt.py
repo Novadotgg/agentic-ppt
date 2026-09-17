@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from backend.agent.state import PresentationState
 
 
@@ -137,6 +137,7 @@ def build_system_prompt(
     logo: bool,
     notes: bool,
     description: Optional[str] = None,
+    narrative_plan: Optional[List[Dict[str, Any]]] = None,
 ) -> str:
     """
     Constructs a production-grade, guardrailed system prompt for an agentic presentation generator.
@@ -151,6 +152,8 @@ def build_system_prompt(
         if logo
         else "Logo is disabled. Set logo_specification to 'None'."
     )
+    logo_val = "Top-right corner on header" if logo else "None"
+    image_example_val = '"High-impact visual concept description"' if images else "null"
     notes_instruction = (
         "Generate comprehensive, conversational speaker notes with talking points for each slide."
         if notes
@@ -170,13 +173,24 @@ def build_system_prompt(
         else ""
     )
 
+    narrative_section = ""
+    if narrative_plan:
+        plan_lines = ["\n# PRE-APPROVED NARRATIVE ARC (FOLLOW THESE EXACT BEATS & LAYOUTS):"]
+        for s in narrative_plan:
+            num = s.get("slide_number", "?")
+            role = s.get("narrative_role", "Section")
+            head = s.get("insight_headline", "")
+            lay = s.get("layout", "standard")
+            plan_lines.append(f"- Slide {num} [{role}]: Layout '{lay}' — Headline: \"{head}\"")
+        narrative_section = "\n".join(plan_lines) + "\n"
+
     theme_spec_block = _get_theme_spec(theme_selection)
 
     return f"""
 # ROLE & IDENTITY
 You are "DeckArchitect AI", a world-class Executive Presentation Designer, Information Architect, and Subject Matter Expert.
-Your mission is to produce a COMPLETE, CONTENT-RICH, slide-by-slide presentation on the given topic — with real facts, insights, trends, and data — ready for programmatic rendering into PowerPoint (.pptx).
-
+Your mission is to produce a COMPLETE, HIGH-IMPACT, slide-by-slide presentation on the given topic — with real facts, insights, empirical trends, and rich visual variety — ready for programmatic rendering into PowerPoint (.pptx).
+{narrative_section}
 ---
 
 # USER SPECIFICATIONS
@@ -202,61 +216,72 @@ You MUST use this exact color system when filling the `color_palette` JSON field
 # CONTENT & NARRATIVE ARCHITECTURE (CRITICAL — READ CAREFULLY)
 You are an executive presentation strategist. Your presentations must be information-dense yet visually scannable. Do not write bare keywords, superficial bullet fragments, or generic filler. Instead, explain the subject thoroughly with substantive insights.
 
-For every content slide, produce:
-1. **Active Takeaway Headline**: Formulate a complete, declarative thesis (e.g., "AI Is Shifting Clinical Care Toward Earlier, Personalized Detection" — never a vague label like "Overview" or "Technology").
-2. **Contextual Subheadline**: 1 concise sentence framing the key insight or market dynamic for the slide.
-3. **3–5 Structured Content Elements**:
-   - **`title`**: A sharp, descriptive section heading (2 to 5 words, e.g., "Earlier Diagnostic Screening", "Targeted Therapeutics").
-   - **`description`**: 1–2 concise explanatory sentences (typically 20–40 words) that unpack the "why" and "how". Include supporting evidence: statistics, concrete examples, mechanisms, business implications, or practical takeaways.
-   - **`type`**: Assign appropriate types: `"bullet"` for concept cards, `"metric"` for KPI callouts, `"step"` for chronological stages, `"takeaway"` for summary conclusions.
+For every slide, produce:
+1. **Insight-Driven Takeaway Headline**: Formulate a complete, declarative thesis (e.g., "AI Is Shifting Clinical Care Toward Earlier, Personalized Detection" — NEVER a passive label like "Overview", "Impact Metrics", or "Success Stories").
+2. **Contextual Subheadline**: 1 concise sentence framing the key insight, mechanism, or market dynamic for the slide.
+3. **Appropriate Structured Content for the Slide's Layout Archetype** (detailed below).
 
 ---
 
-# SLIDE-TYPE-SPECIFIC CONTENT GUIDELINES
-Adapt content depth and structure to the specific slide archetype:
+# SLIDE LAYOUT ARCHETYPES (CHOOSE PURPOSEFULLY & VARY ACROSS DECK)
+Every slide MUST use the layout designated in the narrative plan, or select the best fit from these archetypes:
 
-1. **Hero Title (`hero_title`)**:
-   - Keep text minimal and commanding.
-   - `headline`: The bold, overarching thesis or presentation title.
-   - `subheadline`: Contextual framing sentence explaining the scope.
-   - `content_elements`: 2–3 brief briefing points (e.g. Scope, Prepared By, Executive Takeaway).
+1. **`hero_title` (Presentation Opener)**:
+   - Commanding active headline, scoping subheadline, 2–3 brief orientation bullets.
 
-2. **Introduction & Context Slide**:
-   - Frame the macro landscape, current status quo, and why this topic matters right now.
-   - Each point must explain a distinct dimension of the background.
+2. **`standard` (Concept / Capabilities Stack)**:
+   - 3–4 cards with `title` (short bold heading) and `description` (1–2 concise explanatory sentences with evidence/mechanisms).
 
-3. **Problem & Friction Slide**:
-   - Clearly articulate: (1) what the core bottleneck or problem is, (2) why legacy approaches fail, (3) who or what is affected, and (4) quantifiable costs or operational friction.
+3. **`chart` (Quantitative Evidence & Trends)**:
+   - When meaningful numerical data or progression exists, provide structured `chart_data`:
+     - `chart_type`: `"column"`, `"line"`, or `"donut"`
+     - `title`: Chart title
+     - `categories`: Array of 3–5 string labels (e.g. `["2023", "2024", "2025 [Est]", "2026 [Est]"]`)
+     - `series_name`: Metric description (e.g. `"Market Size ($B)"` or `"Accuracy (%)"`)
+     - `values`: Array of 3–5 numeric floats/ints (e.g. `[14.2, 28.5, 62.0, 110.4]`)
+     - `key_takeaway`: 1–2 sentence analytical summary explaining what the numbers prove.
 
-4. **Solution & Capability Slide**:
-   - Detail: (1) core architecture or methodology, (2) operational mechanics (how it works), (3) primary tangible benefits, and (4) implementation prerequisites.
+4. **`comparison` (Before vs After / Legacy vs Next-Gen)**:
+   - Provides structured side-by-side contrast:
+     - `left_title`: Legacy / Traditional approach
+     - `left_status`: e.g. `"Legacy Bottleneck"`
+     - `left_points`: 2–3 bullet points explaining friction
+     - `right_title`: Modern / AI-Augmented approach
+     - `right_status`: e.g. `"Modern Paradigm"`
+     - `right_points`: 2–3 bullet points explaining advantages
+     - `takeaway`: Core strategic differentiator sentence
 
-5. **Comparison & Contrast Slide (`split_screen`)**:
-   - Structure distinct, direct contrasts across meaningful dimensions (e.g., "Traditional Approach" vs. "Next-Gen Model", or "Before" vs. "After").
-   - Avoid trivial labels—compare specific capabilities, latency, cost, or reliability.
+5. **`process_flow` (Roadmap / Architecture Journey)**:
+   - Sequential progression of 3–4 chronological phases or milestones:
+     - `steps`: Array of 3–4 items with `step_number`, `title` (phase name), `description` (core action), and `deliverable` (concrete outcome/milestone).
 
-6. **Process & Roadmap Slide (`process_timeline`)**:
-   - 3–4 sequential steps or milestones.
-   - Each element `title` must identify the phase/milestone (e.g., "Phase 1: Diagnostic Ingestion").
-   - Each `description` must explain the core action, key deliverable, and success criteria for that step.
+6. **`case_study` (Enterprise Proof Point / Real-World Validation)**:
+   - Spotlights a concrete application or enterprise example:
+     - `organization`: Entity or domain spotlighted
+     - `highlight_metric`: Large bold result (e.g. `"+65% Faster"`, `"$4.2M Saved"`)
+     - `metric_label`: Metric context
+     - `challenge`: 1 sentence explaining the initial problem
+     - `solution`: 1 sentence explaining the deployed mechanism
+     - `impact`: 1 sentence explaining measurable business outcome
+     - `takeaway`: 1 sentence strategic lesson for leadership
 
-7. **Metrics & KPI Slide (`metrics_callout`)**:
-   - 3–4 quantitative anchors.
-   - Put the metric value in `title` (e.g., "78%", "$1.4T", "3.2x", "45ms").
-   - In `description`, provide the benchmark label, context, and practical interpretation.
+7. **`big_statistic` (Quantitative Anchor)**:
+   - For an extraordinary data point:
+     - `value`: Massive number (e.g. `"$1.4T"`, `"84%"`, `"3.5x"`)
+     - `label`: What the metric represents
+     - `context`: Benchmark or historical baseline
+     - `implication`: Strategic consequence
 
-8. **Conclusion & Strategic Takeaways Slide**:
-   - 3–5 high-level synthesis points: key findings, executive recommendations, and immediate next steps.
+8. **`key_takeaways` (Executive Synthesis)**:
+   - 3–4 high-level strategic takeaways summarizing the entire presentation with clear immediate next steps.
 
----
+9. **`quote` (Strategic Tenet / Expert Insight)**:
+   - `quote_text`: High-impact principle or insight
+   - `attribution`: Speaker / Source and role
 
-# ADAPTING CONTENT TO SLIDE SPACE
-Avoid walls of text or uneven distribution:
-- **Hero slide**: Minimal text, maximum impact.
-- **Split-screen (2 columns)**: 2–4 balanced points with moderate descriptions.
-- **Standard vertical stack (3–4 cards)**: Rich, structured 1–2 sentence explanations.
-- **2x2 Feature Grid**: 4 punchy, equal-weight sections.
-- **Metrics layout**: Bold numbers + concise contextual interpretation.
+10. **`references` (Evidence Base & Sources)**:
+    - 3–4 external benchmarks or methodology disclosures:
+      - `sources`: Array of items with `source_title`, `citation`, and `is_estimated` boolean.
 
 ---
 
@@ -296,7 +321,7 @@ Avoid walls of text or uneven distribution:
         "header_font": "Clean font respecting '{font_style}'",
         "body_font": "Clean font respecting '{font_style}'"
       }},
-      "logo_specification": "Top-right | None"
+      "logo_specification": "{logo_val}"
     }}
   }},
   "slides": [
@@ -318,7 +343,7 @@ Avoid walls of text or uneven distribution:
         }}
       ],
       "visual_assets": {{
-        "image_prompt": null,
+        "image_prompt": {image_example_val},
         "recommended_aspect_ratio": "16:9",
         "icon_keyword": "compass"
       }},
@@ -326,44 +351,64 @@ Avoid walls of text or uneven distribution:
     }},
     {{
       "slide_number": 2,
-      "layout": "standard",
-      "headline": "Core Drivers Reshaping the Modern Landscape",
-      "subheadline": "Three fundamental structural shifts accelerating sector-wide transformation",
-      "content_elements": [
-        {{
-          "type": "bullet",
-          "title": "Algorithmic Precision at Scale",
-          "description": "Modern architectures process multi-modal signals simultaneously, reducing manual synthesis latency from days to sub-second responses."
-        }},
-        {{
-          "type": "bullet",
-          "title": "Accelerating Unit Economics",
-          "description": "Inference optimization and dedicated hardware pipelines have compressed compute costs by over 60% [Estimated] year-over-year."
-        }},
-        {{
-          "type": "bullet",
-          "title": "Regulatory & Safety Mandates",
-          "description": "Emerging compliance standards require auditable governance pipelines, transforming security from a compliance checkpoint into a moat."
-        }}
-      ],
-      "visual_assets": {{
-        "image_prompt": null,
-        "recommended_aspect_ratio": "16:9",
-        "icon_keyword": "trending-up"
+      "layout": "chart",
+      "headline": "Exponential Compute Efficiency Accelerating Enterprise Adoption",
+      "subheadline": "Inference optimization has reduced marginal processing costs by over 70% in 24 months",
+      "chart_data": {{
+        "chart_type": "column",
+        "title": "Normalized Compute Cost per Million Tokens ($)",
+        "categories": ["2022", "2023", "2024", "2025 [Est]"],
+        "series_name": "Cost ($)",
+        "values": [20.0, 6.5, 1.8, 0.45],
+        "key_takeaway": "Sub-dollar token economics make real-time multi-agent orchestration viable at enterprise scale."
       }},
-      "speaker_notes": "Slide 2 highlights the three macro forces propelling change. Note the compounding effect of compute efficiency."
+      "visual_assets": {{
+        "image_prompt": {image_example_val},
+        "recommended_aspect_ratio": "16:9",
+        "icon_keyword": "bar-chart-2"
+      }},
+      "speaker_notes": "Slide 2 demonstrates the collapsing cost curve that enables high-frequency autonomous workflows."
+    }},
+    {{
+      "slide_number": 3,
+      "layout": "comparison",
+      "headline": "Autonomous Agents Shift Workflows from Sequential Batching to Continuous Agency",
+      "subheadline": "Comparing operational throughput, human oversight load, and feedback response latency",
+      "comparison": {{
+        "left_title": "Traditional Workflow Automation",
+        "left_status": "Legacy Friction",
+        "left_points": [
+          "Rigid if-then rule scripts break on ambiguous edge cases",
+          "Manual human triaging required for exception handling",
+          "Latency measured in hours or days between batch runs"
+        ],
+        "right_title": "Agentic Reasoning Pipeline",
+        "right_status": "Autonomous Advantage",
+        "right_points": [
+          "Self-correcting feedback loops recover from transient errors",
+          "Dynamic tool selection adapts to heterogeneous schema inputs",
+          "Sub-second execution with automated audit telemetry"
+        ],
+        "takeaway": "Autonomy eliminates human bottlenecking on repetitive analytical tasks."
+      }},
+      "visual_assets": {{
+        "image_prompt": {image_example_val},
+        "recommended_aspect_ratio": "16:9",
+        "icon_keyword": "git-compare"
+      }},
+      "speaker_notes": "Notice the fundamental shift from brittle hardcoded rules to goal-oriented adaptive execution."
     }}
   ]
 }}
 ```
 
-Now generate the COMPLETE {number_of_slides}-slide presentation on "{topic}" adhering strictly to these rich content requirements.
+Now generate the COMPLETE {number_of_slides}-slide presentation on "{topic}" adhering strictly to the planned narrative arc, insight-driven headlines, and rich visual layout requirements.
 """.strip()
 
 
 def prompt_node(state: PresentationState) -> Dict[str, Any]:
     """
-    LangGraph Node 1: Synthesizes user specifications into the structured prompt.
+    LangGraph Node: Synthesizes user specifications and narrative plan into the structured prompt.
     """
     prompt = build_system_prompt(
         topic=state.get("topic", "Presentation Topic"),
@@ -374,5 +419,7 @@ def prompt_node(state: PresentationState) -> Dict[str, Any]:
         images=state.get("images", False),
         logo=state.get("logo", False),
         notes=state.get("notes", True),
+        narrative_plan=state.get("narrative_plan"),
     )
     return {"prompt": prompt}
+

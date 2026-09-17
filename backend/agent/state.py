@@ -1,4 +1,4 @@
-from typing import TypedDict, Optional, Dict, Any
+from typing import TypedDict, Optional, Dict, Any, List
 
 
 class PresentationState(TypedDict, total=False):
@@ -15,7 +15,12 @@ class PresentationState(TypedDict, total=False):
     logo: bool
     notes: bool
 
+    # Pipeline artifacts
+    validation_result: Optional[Dict[str, Any]]
+    narrative_plan: Optional[List[Dict[str, Any]]]
     prompt: str
     raw_response: str
     structured_output: Optional[Dict[str, Any]]
+    review_notes: Optional[List[str]]
+    ppt_file_path: Optional[str]
     error: Optional[str]
