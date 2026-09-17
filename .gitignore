@@ -1,0 +1,7 @@
+venv/
+.env
+__pycache__/
+*.pyc
+presentation_deck.json
+.env.example
+example
