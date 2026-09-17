@@ -57,7 +57,9 @@ def get_llm_instance(config: Optional[RunnableConfig] = None) -> Optional[ChatGr
     if not api_key:
         return None
 
-    model_name = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
+    DEFAULT_MODEL = "openai/gpt-oss-20b"
+    raw_env_model = (os.getenv("GROQ_MODEL") or "").strip().strip("'\"")
+    model_name = raw_env_model or DEFAULT_MODEL
     return ChatGroq(
         model=model_name,
         temperature=0.3,

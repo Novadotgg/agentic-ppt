@@ -42,7 +42,10 @@ def generate_ppt(request: GeneratePPTRequest):
     The Groq API key is request-scoped and never logged, persisted, or stored in state.
     """
     # 1. Instantiate request-scoped LLM (never stored globally or persisted)
-    model_name = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
+    DEFAULT_MODEL = "openai/gpt-oss-20b"
+    raw_env_model = (os.getenv("GROQ_MODEL") or "").strip().strip("'\"")
+    raw_req_model = (getattr(request, "model", None) or "").strip().strip("'\"")
+    model_name = raw_req_model or raw_env_model or DEFAULT_MODEL
     try:
         request_llm = ChatGroq(
             groq_api_key=request.groq_api_key,

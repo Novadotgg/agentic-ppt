@@ -46,6 +46,10 @@ class GeneratePPTRequest(BaseModel):
         default=True,
         description="Whether to generate speaker notes for each slide",
     )
+    model: Optional[str] = Field(
+        default=None,
+        description="Optional custom Groq model name override",
+    )
 
     @field_validator("groq_api_key")
     @classmethod
