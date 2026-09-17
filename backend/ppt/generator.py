@@ -157,6 +157,22 @@ def get_theme_palette(theme_data: Dict[str, Any], default_theme_name: str = "Obs
         if get_relative_luminance(muted) > 160:
             muted = RGBColor(100, 116, 139)
 
+    is_dark = surf_lum < 128
+    if is_dark:
+        chart_palette = [
+            secondary_accent,
+            primary_accent,
+            heading,
+            muted,
+        ]
+    else:
+        chart_palette = [
+            primary_accent,
+            secondary_accent,
+            heading,
+            muted,
+        ]
+
     return {
         "bg": bg,
         "surface": surface,
@@ -166,7 +182,8 @@ def get_theme_palette(theme_data: Dict[str, Any], default_theme_name: str = "Obs
         "heading": heading,
         "body": body,
         "muted": muted,
-        "is_dark": surf_lum < 128,
+        "is_dark": is_dark,
+        "chart_palette": chart_palette,
     }
 
 
@@ -774,11 +791,86 @@ def render_chart_slide(
         )
         chart = chart_shape.chart
         chart.has_legend = False
+        is_dark = colors.get("is_dark", True)
+        chart_palette = colors.get("chart_palette") or [
+            colors["secondary_accent"],
+            colors["primary_accent"],
+            colors["heading"],
+            colors["muted"],
+        ]
+
+        # 1. Chart Title (styled with high contrast theme heading color)
+        chart.has_title = True
+        c_title_text = chart_data.get("metric_name") or chart_data.get("title") or series_name
+        chart.chart_title.text_frame.text = c_title_text
+        for p in chart.chart_title.text_frame.paragraphs:
+            p.font.name = header_font
+            p.font.size = Pt(12.5)
+            p.font.bold = True
+            p.font.color.rgb = colors["heading"]
+
+        # 2. Category Axis (X-Axis: Category labels)
+        try:
+            cat_axis = chart.category_axis
+            cat_axis.format.line.color.rgb = colors["surface_border"]
+            cat_axis.has_major_gridlines = False
+            cat_axis.tick_labels.font.name = body_font
+            cat_axis.tick_labels.font.size = Pt(9.5)
+            # High-contrast label: crisp heading in dark mode, readable body in light mode
+            cat_axis.tick_labels.font.color.rgb = colors["heading"] if is_dark else colors["body"]
+        except Exception:
+            pass
+
+        # 3. Value Axis (Y-Axis: Scale numbers & subtle gridlines)
+        try:
+            val_axis = chart.value_axis
+            val_axis.format.line.color.rgb = colors["surface_border"]
+            val_axis.tick_labels.font.name = body_font
+            val_axis.tick_labels.font.size = Pt(8.5)
+            val_axis.tick_labels.font.color.rgb = colors["muted"]
+            if val_axis.has_major_gridlines:
+                # Theme-aware subtle gridlines
+                val_axis.major_gridlines.format.line.color.rgb = colors["surface_border"]
+                val_axis.major_gridlines.format.line.width = Pt(0.75)
+        except Exception:
+            pass
+
+        # 4. Plots, Data Labels, and Series / Point Colors
         plots = chart.plots
-        if plots and plots[0].series:
-            series = plots[0].series[0]
-            series.format.fill.solid()
-            series.format.fill.fore_color.rgb = colors["primary_accent"]
+        if plots:
+            plot = plots[0]
+
+            # Enable readable data labels on column charts
+            if chart_type == XL_CHART_TYPE.COLUMN_CLUSTERED:
+                try:
+                    plot.has_data_labels = True
+                    dl = plot.data_labels
+                    dl.font.name = header_font
+                    dl.font.size = Pt(10)
+                    dl.font.bold = True
+                    dl.font.color.rgb = colors["heading"]
+                    dl.show_value = True
+                except Exception:
+                    pass
+
+            if plot.series:
+                for s_idx, series in enumerate(plot.series):
+                    if chart_type == XL_CHART_TYPE.LINE:
+                        series.format.line.color.rgb = colors["primary_accent"]
+                        series.format.line.width = Pt(3)
+                    else:
+                        series.format.fill.solid()
+                        series.format.fill.fore_color.rgb = colors["primary_accent"]
+
+                    # If multiple categories / points in a single series, apply alternating theme palette shades
+                    if hasattr(series, "points") and len(series.points) > 1:
+                        for p_idx, point in enumerate(series.points):
+                            try:
+                                pt_color = chart_palette[p_idx % len(chart_palette)]
+                                point.format.fill.solid()
+                                point.format.fill.fore_color.rgb = pt_color
+                            except Exception:
+                                pass
     except Exception as e:
         print(f"[Chart Render Warning] Error adding chart shape: {e}")
 
