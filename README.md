@@ -1,16 +1,16 @@
-# Nova PPT Gen 🚀
+# Nova PPT Gen
 
-> **Agentic AI PowerPoint Generator** powered by LangGraph, Groq (Llama 3.3 70B), and `python-pptx`. Create professionally styled, content-rich PowerPoint decks in seconds.
+> **Agentic PowerPoint Generator** powered by LangGraph, Groq (GPT OSS 20B), and `python-pptx`. Create professionally styled, content-rich PowerPoint decks in seconds.
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?style=flat&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-blue?style=flat)](https://github.com/langchain-ai/langgraph)
-[![Groq](https://img.shields.io/badge/Groq-Llama_3.3_70B-f55036?style=flat)](https://groq.com)
+[![Groq](https://img.shields.io/badge/Groq-GPT_OSS_20B-f55036?style=flat)](https://groq.com)
 [![Python PPTX](https://img.shields.io/badge/python--pptx-1.0+-d9381e?style=flat)](https://python-pptx.readthedocs.io)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
 
-## ✨ Overview
+## Overview
 
 **Nova PPT Gen** is a full-stack presentation generator that transforms any topic or brief into a structured, design-forward PowerPoint presentation (`.pptx`).
 
@@ -18,30 +18,30 @@ Unlike standard presentation tools that generate superficial bullet points or pl
 
 ---
 
-## 🌟 Key Features
+## Key Features
 
-- **⚡ Blazing Fast Generation**: Powered by Groq's high-speed inference running `llama-3.3-70b-versatile`.
-- **🧠 Agentic Structure & Narrative Architecture**: LangGraph orchestrates slide planning to ensure every slide has a clear takeaway headline and concrete data-driven insights.
-- **🎨 Curated Design Palettes**:
+- **Blazing Fast Generation**: Powered by Groq's high-speed inference running `openai/gpt-oss-20b`.
+- **Agentic Structure and Narrative Architecture**: LangGraph orchestrates slide planning to ensure every slide has a clear takeaway headline and concrete data-driven insights.
+- **Curated Design Palettes**:
   - `Obsidian Emerald`: High-tech dark mode with emerald neon accents.
   - `Midnight Executive`: Deep navy with gold accents for corporate and board meetings.
   - `Ivory Linen`: Warm, sophisticated editorial style with bronze and charcoal tones.
   - `Arctic Blueprint`: Clean SaaS / tech-deck style with electric blue accents on crisp slate.
   - `Crimson Authority`: High-contrast black and crimson for punchy, decisive pitches.
-- **📐 Purpose-Built Slide Layout Archetypes**:
+- **Purpose-Built Slide Layout Archetypes**:
   - **Hero Title**: Bold presentation opener with subtitle and speaker credentials.
   - **Split Screen**: Side-by-side comparison (problem vs. solution, before vs. after).
   - **Metrics Callout**: 3–4 prominent KPI blocks with values and contextual labels.
   - **Process Timeline**: Sequential steps or development roadmaps.
   - **Feature Grid**: Modular 3–4 card highlights for capabilities or value propositions.
   - **Quote Focus**: Impactful editorial statement or client testimonial.
-- **🎙️ Comprehensive Speaker Notes**: Generates natural, slide-by-slide talking points for presenters.
-- **🔒 Privacy First & Stateless**: User-provided Groq API keys are request-scoped and never stored on disk or logged. Generated files are streamed and cleaned up automatically via background tasks.
-- **🖥️ Built-In Web Interface**: Clean, dark-mode frontend built with Space Mono and emerald tokens—no heavy setup required.
+- **Comprehensive Speaker Notes**: Generates natural, slide-by-slide talking points for presenters.
+- **Privacy First and Stateless**: User-provided Groq API keys are request-scoped and never stored on disk or logged. Generated files are streamed and cleaned up automatically via background tasks.
+- **Built-In Web Interface**: Clean, dark-mode frontend built with Space Mono and emerald tokens—no heavy setup required.
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 User Input (Topic, Theme, Slides, Notes)
@@ -51,7 +51,7 @@ User Input (Topic, Theme, Slides, Notes)
                   │
                   ▼
          LangGraph Agent
-      (Groq / Llama 3.3 70B)
+      (Groq / GPT OSS 20B)
                   │
                   ▼
        Structured Slide JSON
@@ -66,7 +66,7 @@ User Input (Topic, Theme, Slides, Notes)
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Prerequisites
 
@@ -107,7 +107,7 @@ Default contents of `.env.example`:
 ```env
 # Optional Development Configuration
 # In production, users provide their own Groq API key in the UI.
-GROQ_MODEL=llama-3.3-70b-versatile
+GROQ_MODEL=openai/gpt-oss-20b
 ```
 
 ### 5. Run the Server
@@ -121,7 +121,7 @@ python -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 
 ---
 
-## 📂 Project Structure
+## Project Structure
 
 ```text
 agentic-ppt/
@@ -151,7 +151,7 @@ agentic-ppt/
 
 ---
 
-## 📡 API Reference
+## API Reference
 
 ### 1. Health Check
 
@@ -214,14 +214,14 @@ curl -X POST "http://localhost:8000/api/generate-ppt" \
 
 ---
 
-## 🛡️ Security & Privacy
+## Security and Privacy
 
 1. **No Stored Keys**: Groq API keys are provided on each request and used only within that request's execution scope. They are never written to disk, saved in databases, or included in logs.
 2. **Ephemeral File Storage**: PowerPoint presentations are compiled to temporary files, streamed to the client, and immediately removed via background cleanup tasks.
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! If you'd like to add new slide archetypes, new color themes, or improve layout rendering:
 
@@ -233,6 +233,6 @@ Contributions are welcome! If you'd like to add new slide archetypes, new color 
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the [MIT License](LICENSE).
