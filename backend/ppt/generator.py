@@ -317,7 +317,7 @@ def add_slide_header(
     top_bar.line.fill.background()
 
     # 2. Title and Subtitle Box
-    title_box = slide.shapes.add_textbox(Inches(0.8), Inches(0.55), Inches(10.5), Inches(1.2))
+    title_box = slide.shapes.add_textbox(Inches(0.8), Inches(0.55), Inches(10.5), Inches(1.3))
     tf = title_box.text_frame
     tf.word_wrap = True
     tf.margin_left = tf.margin_right = tf.margin_top = tf.margin_bottom = 0
@@ -325,7 +325,7 @@ def add_slide_header(
     p_title = tf.paragraphs[0]
     p_title.text = headline
     p_title.font.name = header_font
-    p_title.font.size = Pt(24)
+    p_title.font.size = Pt(22)
     p_title.font.bold = True
     p_title.font.color.rgb = colors["heading"]
 
@@ -335,7 +335,7 @@ def add_slide_header(
         p_sub.font.name = body_font
         p_sub.font.size = Pt(13)
         p_sub.font.color.rgb = colors["muted"]
-        p_sub.space_before = Pt(4)
+        p_sub.space_before = Pt(3)
 
     # 3. Optional Logo Box
     if has_logo:
@@ -492,10 +492,17 @@ def render_grid_layout(
 
             title = elem.get("title", "")
             desc = elem.get("description", "")
+            elem_type = (elem.get("type") or "").lower()
 
-            # Index tag pill / badge
+            # Dynamic badge according to element type
+            badge_text = f"PILLAR 0{i+1}"
+            if elem_type == "step":
+                badge_text = f"PHASE 0{i+1}"
+            elif elem_type == "takeaway":
+                badge_text = f"TAKEAWAY 0{i+1}"
+
             p_badge = tf.paragraphs[0]
-            p_badge.text = f"KEY TAKEAWAY 0{i+1}"
+            p_badge.text = badge_text
             p_badge.font.name = header_font
             p_badge.font.size = Pt(10)
             p_badge.font.bold = True
@@ -543,17 +550,24 @@ def render_grid_layout(
 
             tf = card.text_frame
             tf.word_wrap = True
-            tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+            tf.vertical_anchor = MSO_ANCHOR.TOP
             tf.margin_left = Inches(0.35)
             tf.margin_right = Inches(0.25)
+            tf.margin_top = Inches(0.22)
+            tf.margin_bottom = Inches(0.12)
 
             title = elem.get("title", "")
             desc = elem.get("description", "")
+            elem_type = (elem.get("type") or "").lower()
+
+            badge_prefix = f"0{i+1}"
+            if elem_type == "step":
+                badge_prefix = f"STEP 0{i+1}"
 
             p_title = tf.paragraphs[0]
-            p_title.text = f"0{i+1}  •  {title}" if title else desc
+            p_title.text = f"{badge_prefix}  •  {title}" if title else desc
             p_title.font.name = header_font
-            p_title.font.size = Pt(15)
+            p_title.font.size = Pt(14)
             p_title.font.bold = True
             p_title.font.color.rgb = colors["heading"]
 
@@ -561,9 +575,9 @@ def render_grid_layout(
                 p_desc = tf.add_paragraph()
                 p_desc.text = desc
                 p_desc.font.name = body_font
-                p_desc.font.size = Pt(12)
+                p_desc.font.size = Pt(11.5)
                 p_desc.font.color.rgb = colors["body"]
-                p_desc.space_before = Pt(6)
+                p_desc.space_before = Pt(5)
 
 
 def render_standard_cards(
@@ -587,9 +601,13 @@ def render_standard_cards(
     if num_elements == 0:
         return
 
-    # Multi-card vertical stack
-    gap = Inches(0.18)
+    # Multi-card vertical stack with adaptive spacing
+    gap = Inches(0.14) if num_elements >= 4 else Inches(0.18)
     item_height = (card_height - (gap * (num_elements - 1))) / num_elements
+
+    title_size = Pt(13.5) if num_elements >= 4 else Pt(15)
+    desc_size = Pt(11) if num_elements >= 4 else Pt(12)
+    top_pad = Inches(0.14) if num_elements >= 4 else Inches(0.20)
 
     for i, elem in enumerate(elements):
         item_top = top_margin + i * (item_height + gap)
@@ -610,17 +628,26 @@ def render_standard_cards(
         # Text Frame
         tf = card.text_frame
         tf.word_wrap = True
-        tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+        tf.vertical_anchor = MSO_ANCHOR.TOP
         tf.margin_left = Inches(0.35)
         tf.margin_right = Inches(0.3)
+        tf.margin_top = top_pad
+        tf.margin_bottom = Inches(0.08)
 
         title = elem.get("title", "")
         desc = elem.get("description", "")
+        elem_type = (elem.get("type") or "").lower()
+
+        badge_prefix = f"0{i+1}"
+        if elem_type == "step":
+            badge_prefix = f"STEP 0{i+1}"
+        elif elem_type == "takeaway":
+            badge_prefix = f"TAKEAWAY 0{i+1}"
 
         p_title = tf.paragraphs[0]
-        p_title.text = f"0{i+1}  •  {title}" if title else desc
+        p_title.text = f"{badge_prefix}  •  {title}" if title else desc
         p_title.font.name = header_font
-        p_title.font.size = Pt(15)
+        p_title.font.size = title_size
         p_title.font.bold = True
         p_title.font.color.rgb = colors["heading"]
 
@@ -628,9 +655,9 @@ def render_standard_cards(
             p_desc = tf.add_paragraph()
             p_desc.text = desc
             p_desc.font.name = body_font
-            p_desc.font.size = Pt(12)
+            p_desc.font.size = desc_size
             p_desc.font.color.rgb = colors["body"]
-            p_desc.space_before = Pt(4)
+            p_desc.space_before = Pt(3)
 
     # Optional visual card if visual assets / images are enabled
     if has_visual and visual_assets:
@@ -700,7 +727,7 @@ def render_slide_content(
 
     if layout_type == "metrics_callout" or (has_metrics and len(elements) in (3, 4) and not has_visual):
         render_metrics_layout(slide, elements, colors, header_font, body_font)
-    elif layout_type in ("feature_grid", "split_screen") or (len(elements) == 4 and not has_visual):
+    elif layout_type in ("feature_grid", "split_screen", "process_timeline", "comparison", "timeline") or (len(elements) == 4 and not has_visual):
         render_grid_layout(slide, elements, colors, header_font, body_font)
     else:
         render_standard_cards(slide, elements, colors, header_font, body_font, has_visual, visuals)

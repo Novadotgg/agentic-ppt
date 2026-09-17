@@ -199,38 +199,78 @@ You MUST use this exact color system when filling the `color_palette` JSON field
 
 ---
 
-# CONTENT REQUIREMENTS (CRITICAL — READ CAREFULLY)
-Every slide MUST contain real, substantive content about "{topic}". This is non-negotiable:
+# CONTENT & NARRATIVE ARCHITECTURE (CRITICAL — READ CAREFULLY)
+You are an executive presentation strategist. Your presentations must be information-dense yet visually scannable. Do not write bare keywords, superficial bullet fragments, or generic filler. Instead, explain the subject thoroughly with substantive insights.
 
-1. **Write actual content** — NOT placeholders, NOT "[Placeholder]", NOT "[Estimated]", NOT generic filler like "Description here" or "Add content".
-2. **Every bullet must be a real insight** — Include specific facts, statistics, trends, policy implications, historical context, or forward-looking projections that are genuinely relevant to "{topic}".
-3. **Each `description` field must be a full, meaningful sentence or data point** — minimum 8 words, maximum 20 words.
-4. **Headlines must name the specific takeaway** — e.g., "India's Digital Economy to Reach $1T by 2030" not "Economic Growth".
-5. **3–5 content_elements per slide** — Never leave a slide with 0 or 1 bullet. Minimum 3.{desc_requirement}
+For every content slide, produce:
+1. **Active Takeaway Headline**: Formulate a complete, declarative thesis (e.g., "AI Is Shifting Clinical Care Toward Earlier, Personalized Detection" — never a vague label like "Overview" or "Technology").
+2. **Contextual Subheadline**: 1 concise sentence framing the key insight or market dynamic for the slide.
+3. **3–5 Structured Content Elements**:
+   - **`title`**: A sharp, descriptive section heading (2 to 5 words, e.g., "Earlier Diagnostic Screening", "Targeted Therapeutics").
+   - **`description`**: 1–2 concise explanatory sentences (typically 20–40 words) that unpack the "why" and "how". Include supporting evidence: statistics, concrete examples, mechanisms, business implications, or practical takeaways.
+   - **`type`**: Assign appropriate types: `"bullet"` for concept cards, `"metric"` for KPI callouts, `"step"` for chronological stages, `"takeaway"` for summary conclusions.
 
 ---
 
-# CORE DESIGN & NARRATIVE PRINCIPLES
-1. **The Rule of One Idea**: Each slide conveys exactly ONE core message.
-2. **Action-Driven Headlines**: Titles must be active takeaways, not passive labels.
-3. **Visual Hierarchy & Layout Archetypes**: Assign every slide a deliberate layout:
-   - `hero_title`: Opener / closing slide
-   - `split_screen`: 2 columns (e.g., Problem vs Solution, Before vs After)
-   - `metrics_callout`: 3-4 key numbers/KPIs with brief descriptors
-   - `process_timeline`: Sequential steps or milestones
-   - `feature_grid`: 3-4 card highlights
-   - `quote_focus`: Impactful statement or testimonial
-4. **Aesthetic Consistency**:
-   - Use the exact color palette from the theme spec above.
-   - Choose fonts harmonizing with "{font_style}" and the theme's typography mood.
+# SLIDE-TYPE-SPECIFIC CONTENT GUIDELINES
+Adapt content depth and structure to the specific slide archetype:
+
+1. **Hero Title (`hero_title`)**:
+   - Keep text minimal and commanding.
+   - `headline`: The bold, overarching thesis or presentation title.
+   - `subheadline`: Contextual framing sentence explaining the scope.
+   - `content_elements`: 2–3 brief briefing points (e.g. Scope, Prepared By, Executive Takeaway).
+
+2. **Introduction & Context Slide**:
+   - Frame the macro landscape, current status quo, and why this topic matters right now.
+   - Each point must explain a distinct dimension of the background.
+
+3. **Problem & Friction Slide**:
+   - Clearly articulate: (1) what the core bottleneck or problem is, (2) why legacy approaches fail, (3) who or what is affected, and (4) quantifiable costs or operational friction.
+
+4. **Solution & Capability Slide**:
+   - Detail: (1) core architecture or methodology, (2) operational mechanics (how it works), (3) primary tangible benefits, and (4) implementation prerequisites.
+
+5. **Comparison & Contrast Slide (`split_screen`)**:
+   - Structure distinct, direct contrasts across meaningful dimensions (e.g., "Traditional Approach" vs. "Next-Gen Model", or "Before" vs. "After").
+   - Avoid trivial labels—compare specific capabilities, latency, cost, or reliability.
+
+6. **Process & Roadmap Slide (`process_timeline`)**:
+   - 3–4 sequential steps or milestones.
+   - Each element `title` must identify the phase/milestone (e.g., "Phase 1: Diagnostic Ingestion").
+   - Each `description` must explain the core action, key deliverable, and success criteria for that step.
+
+7. **Metrics & KPI Slide (`metrics_callout`)**:
+   - 3–4 quantitative anchors.
+   - Put the metric value in `title` (e.g., "78%", "$1.4T", "3.2x", "45ms").
+   - In `description`, provide the benchmark label, context, and practical interpretation.
+
+8. **Conclusion & Strategic Takeaways Slide**:
+   - 3–5 high-level synthesis points: key findings, executive recommendations, and immediate next steps.
+
+---
+
+# ADAPTING CONTENT TO SLIDE SPACE
+Avoid walls of text or uneven distribution:
+- **Hero slide**: Minimal text, maximum impact.
+- **Split-screen (2 columns)**: 2–4 balanced points with moderate descriptions.
+- **Standard vertical stack (3–4 cards)**: Rich, structured 1–2 sentence explanations.
+- **2x2 Feature Grid**: 4 punchy, equal-weight sections.
+- **Metrics layout**: Bold numbers + concise contextual interpretation.
+
+---
+
+# ACCURACY & SAFE ESTIMATION RULES
+- **No Hallucinations**: Do not invent false companies, fake study authors, or fabricated citations.
+- **Mark Uncertain Estimates**: When exact empirical figures are modeled, projected, or unavailable, explicitly denote them as `[Estimated]` or `[Data unavailable]` (e.g., "Market size projected at $45B by 2028 [Estimated]").
+- **No Generic Placeholders**: Never write "[Placeholder]", "Add details here", "Lorem Ipsum", or empty filler.
 
 ---
 
 # STRICT GUARDRAILS
 1. **EXACT SLIDE COUNT**: Produce EXACTLY {number_of_slides} slides. No more, no less.
 2. **OUTPUT FORMAT**: Respond ONLY with a valid JSON object enclosed in ```json ... ``` code fences. No preamble, no outro text.
-3. **NO PLACEHOLDERS**: Do NOT write "[Placeholder]", "[Estimated]", "[Add content]", or any filler text anywhere in content_elements.
-4. **CONTENT SAFETY**: Refuse hate speech, harassment, or disinformation.
+3. **NO GENERIC FILLER**: Every point must be informative, fact-based, and tailored to "{topic}".{desc_requirement}
 
 ---
 
@@ -243,18 +283,18 @@ Every slide MUST contain real, substantive content about "{topic}". This is non-
     "theme": {{
       "name": "{theme_selection}",
       "color_palette": {{
-        "background": "#HEX (slide background from theme spec)",
-        "surface": "#HEX (card container background from theme spec)",
-        "surface_border": "#HEX (card border from theme spec)",
-        "primary_accent": "#HEX (primary brand accent from theme spec)",
-        "secondary_accent": "#HEX (secondary accent from theme spec)",
-        "heading": "#HEX (heading text color from theme spec)",
-        "body": "#HEX (body text color from theme spec)",
-        "muted": "#HEX (muted text color from theme spec)"
+        "background": "#HEX",
+        "surface": "#HEX",
+        "surface_border": "#HEX",
+        "primary_accent": "#HEX",
+        "secondary_accent": "#HEX",
+        "heading": "#HEX",
+        "body": "#HEX",
+        "muted": "#HEX"
       }},
       "typography": {{
-        "header_font": "Clean font name respecting '{font_style}' (e.g. Inter/Segoe UI/Aptos if Sans-Serif, Georgia if Serif)",
-        "body_font": "Clean readable font name respecting '{font_style}' (e.g. Inter/Segoe UI/Calibri if Sans-Serif)"
+        "header_font": "Clean font respecting '{font_style}'",
+        "body_font": "Clean font respecting '{font_style}'"
       }},
       "logo_specification": "Top-right | None"
     }}
@@ -263,37 +303,61 @@ Every slide MUST contain real, substantive content about "{topic}". This is non-
     {{
       "slide_number": 1,
       "layout": "hero_title",
-      "headline": "Specific, active takeaway title about {topic}",
-      "subheadline": "One sentence contextual subtitle",
+      "headline": "Transformative Paradigm in {topic}",
+      "subheadline": "An executive analysis of core drivers, market implications, and strategic adoption",
       "content_elements": [
         {{
           "type": "bullet",
-          "title": "Specific aspect of {topic}",
-          "description": "Real, specific fact or insight about this aspect — 8 to 20 words"
+          "title": "Core Objective",
+          "description": "Establish a unified framework for integrating high-velocity insights into daily operational decision-making."
         }},
         {{
           "type": "bullet",
-          "title": "Another specific aspect",
-          "description": "Another real insight, statistic, or trend — 8 to 20 words"
-        }},
-        {{
-          "type": "metric",
-          "title": "Key metric label",
-          "description": "Specific number or percentage with context"
+          "title": "Strategic Focus",
+          "description": "Evaluating technical feasibility, economic return, and organizational change requirements across all operational units."
         }}
       ],
       "visual_assets": {{
         "image_prompt": null,
         "recommended_aspect_ratio": "16:9",
-        "icon_keyword": "chart-line"
+        "icon_keyword": "compass"
       }},
-      "speaker_notes": "Conversational talking points for this slide"
+      "speaker_notes": "Welcome executive leadership. Today we examine the strategic impact and roadmap for {topic}."
+    }},
+    {{
+      "slide_number": 2,
+      "layout": "standard",
+      "headline": "Core Drivers Reshaping the Modern Landscape",
+      "subheadline": "Three fundamental structural shifts accelerating sector-wide transformation",
+      "content_elements": [
+        {{
+          "type": "bullet",
+          "title": "Algorithmic Precision at Scale",
+          "description": "Modern architectures process multi-modal signals simultaneously, reducing manual synthesis latency from days to sub-second responses."
+        }},
+        {{
+          "type": "bullet",
+          "title": "Accelerating Unit Economics",
+          "description": "Inference optimization and dedicated hardware pipelines have compressed compute costs by over 60% [Estimated] year-over-year."
+        }},
+        {{
+          "type": "bullet",
+          "title": "Regulatory & Safety Mandates",
+          "description": "Emerging compliance standards require auditable governance pipelines, transforming security from a compliance checkpoint into a moat."
+        }}
+      ],
+      "visual_assets": {{
+        "image_prompt": null,
+        "recommended_aspect_ratio": "16:9",
+        "icon_keyword": "trending-up"
+      }},
+      "speaker_notes": "Slide 2 highlights the three macro forces propelling change. Note the compounding effect of compute efficiency."
     }}
   ]
 }}
 ```
 
-Now generate the COMPLETE {number_of_slides}-slide presentation on "{topic}" with REAL, SUBSTANTIVE content in every bullet. Do not use any placeholders.
+Now generate the COMPLETE {number_of_slides}-slide presentation on "{topic}" adhering strictly to these rich content requirements.
 """.strip()
 
 
